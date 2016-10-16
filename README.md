@@ -1,2 +1,3 @@
 # set_gpu_fans_public
-Controlling GPU fan speed on a headless linux computer requires spoofing a display.
+Controlling the fan speed of an NVIDIA GPU on a headless linux system requires spoofing a display.
+This can be used to gain a few percent additonal performance, at the cost of increased noise.
