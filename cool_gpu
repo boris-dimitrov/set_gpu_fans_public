@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# Based on 2011 script by Axel Kohlmeyer <akohlmey@gmail.com>,
+# https://sites.google.com/site/akohlmey/random-hacks/nvidia-gpu-coolness
+#
+# Adapted for Nvidia Titan X Pascal Linux Driver 367
+# by Boris Dimitrov <dimiroll@gmail.com> in 2016.
+# Use at your own risk!
+#
+# Suggested installation:
+#
+#     Unpack somewhere, say in directory
+#
+#         ${HOME}/set-gpu-fans
+#
+#     and create a link there from /opt, like so
+#
+#         ln -sf ${HOME}/set-gpu-fans /opt/set-gpu-fans
+#
+# Already running an X server?
+#
+#     Make sure you are not running an X server.  This tool is meant
+#     only for headless systems (no display attached).
+#
+# Suggested usage:
+#
+#    cd /opt/set-gpu-fans
+#    sudo tcsh
+#    ./cool_gpu >& controller.log &
+#    tail -f controller.log
+#
+# Seems to work fine on headless ubuntu systems with one or two compute GPUs.
+# Not intended to run automatically at system startup, sorry!  However,
+# once kicked off, should be good until reboot.
+#
+# See 'nvscmd' script for the rudimentary fan control policy (one designed
+# to eek out a few percent more perf with very noticeable but still
+# tolerable fan noise).
+
+dir=/opt/set-gpu-fans
+
+/usr/bin/nvidia-smi -pm 1
+
+# we need to launch the X server once for each display
+# making each of the PCI IDs the primary device in turn.
+
+# get PCI bus ids of Nvidia cards and convert from hexadecimal to decimal. watch out for the falling toothpicks.
+pciid=`lspci  | sed -n -e '/VGA compatib.*NVIDIA/s/^\(..\):\(..\).\(.\).*/printf "PCI:%d:%d:%d\\\\\\\\n" 0x\1 0x\2 0x\3;/p'`
+disp=0
+for s in `eval ${pciid}`
+do \
+    cfg=`mktemp /tmp/xorg-XXXXXXXX.conf`
+    sed -e s,@GPU_BUS_ID@,${s},    \
+        -e s,@SET_GPU_DIR@,${dir}, \
+        ${dir}/xorg.conf >> ${cfg}
+    # we keep one X server per GPU running indefinitely
+    # (if we let the X server die, the fan config does not persist, no matter what else)
+    xinit ${dir}/nvscmd run_forever -- :${disp} -once -config ${cfg} &
+    disp=$((disp+1))
+    sleep 10
+    rm -f ${cfg}
+done
+

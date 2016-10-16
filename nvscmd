@@ -1,0 +1,155 @@
+#!/bin/tcsh -f
+#
+#  Copyright 2016 Boris Dimitrov <dimiroll@gmail.com>.
+#
+#  Script to control Nvidia GPU fans.   Use at your own risk!
+#
+#  Tested with driver version 367 and cuda8rc on Ubuntu 16.  September 2016.
+#
+#  PREREQUISITES
+#
+#      GPU must be in persistence mode, ideally by running
+#
+#          /usr/bin/start-nvidia-persistenced
+#
+#      X server must be running (possibly one per GPU).
+#      On headless systems, start X with the cool_gpu script.
+#
+#  To set fan speed to 65% on GPU 0 for Display :0,
+#
+#       nvscmd 65 -display :0
+#
+#  To restore automatic fan control,
+#
+#       nvscmd stop -display :0
+#
+#   To run forever enforcing the heuristic below (useful from xinit):
+#
+#       nvscmd run_forever -display :0
+#
+#   Executes heuristic for slightly more aggressive cooling, though
+#   still not super loud (fine to keep in the next room).  A much
+#   louder config could be used in a datacenter.  The difference on
+#   my Titan X Pascal running for an hour+ compute job (GPU using
+#   roughly ~175 watts, all compute no mem) at room temp (22 Celsius)
+#
+#        fan set to 100% -- runs at 97.2% of GPU peak freq (1847 out of 1901 MHz)
+#                           too loud even for next room
+#
+#        this heuristic --- sustains 95.8% of peak freq (1822 out of 1901 MHz),
+#                           quiet enough to be in the next room with open door,
+#                           and whisper quiet when nothing running on GPU;
+#                           temp around 63 degrees Celsius
+#
+#        default       ---  sustains 94.5% of peak freq (1797 out of 1901 MHz)
+#                           and impressively quiet but with GPU temp around 73C,
+#                           it's too hot to touch case near GPU exhaust
+#
+#   Relative to default, the heuristic improves perf by factor of 1.014 (1.4%),
+#   and makes case cool enough that touching won't burn your finger.
+#
+#   Relative to 100% fan, the heuristic sacrafices 1.4% of perf to achieve
+#   humanly tolerable noise levels.
+#
+if ("x$1" == "xrun_forever") then
+    @ run_forever = 1
+    shift
+else
+    @ run_forever = 0
+endif
+
+if ("x$1" == "xstop") then
+    @ target = -1
+endif
+
+if ("x$1" == "x" || "x$1" == "xstart" || "x$1" == "x-display") then
+    # this means "use heuristic"
+    @ target = -3
+else
+    @ target = $1
+endif
+
+if ("x$1" != "x" && "x$1" != "x-display") then
+    shift
+endif
+
+
+# -10 aka null
+@ last_target = -10
+set last_friendly_target = "UNKNOWN"
+
+loop:
+
+    if ($target == -3) then
+        # execute heuristic
+        set foo = (`/usr/bin/nvidia-smi dmon -s p -c 1 | sort -n -k3 | tail -1`)
+        @ temp = $foo[3]
+        @ target = -2
+        if (${temp} < 29) then
+            @ target = -1
+        endif
+        if (${temp} < 36 && ${temp} >= 31) then
+            @ target = 50
+        endif
+        if (${temp} < 43 && ${temp} >= 38) then
+            @ target = 55
+        endif
+        if (${temp} < 49 && ${temp} >= 44) then
+            @ target = 60
+        endif
+        if (${temp} < 54 && ${temp} >= 50) then
+            @ target = 65
+        endif
+        if (${temp} < 61 && ${temp} >= 55) then
+            @ target = 75
+        endif
+        if (${temp} < 70 && ${temp} >= 65) then
+            @ target = 80
+        endif
+        if (${temp} >= 73) then
+            @ target = 85
+        endif
+        if (${target} == -2 || ${target} == ${last_target} || ${target} == ${last_friendly_target}) then
+            echo "Current temperature is ${temp}.  No adjustments needed."
+        else
+            if (${target} >= 0) then
+                echo "Current temperature is ${temp}.  Setting fan speed to ${target} (from ${last_friendly_target})."
+            else
+                echo "Current temperature is ${temp}.  Setting fan speed to AUTO."            
+            endif
+        endif
+    endif
+
+    if (${last_target} != ${target} && ${last_friendly_target} != ${target}) then
+        # relinquish fan speed control back to the system
+        if ("x${target}" == "x-1") then
+            /usr/bin/nvidia-settings -a '[gpu:0]/GPUFanControlState=0'  $*
+        endif
+    
+        # set fan speed on primary GPU to target
+        if (${target} >= 0) then
+            /usr/bin/nvidia-settings -a '[gpu:0]/GPUFanControlState=1' -a '[fan:0]/GPUTargetFanSpeed='${target}  $*
+        endif
+    endif
+
+    @ last_target = ${target}
+    @ target = -3
+    
+    if (${last_target} >= 0) then
+        set last_friendly_target = ${last_target}
+    endif
+    if (${last_target} == -1) then
+        set last_friendly_target = "AUTO"
+    endif
+    # -2 means preserve
+    if (${last_target} < -2) then
+        set last_friendly_target = "UNKNOWN"
+    endif
+
+    sleep 5
+
+if ( ${run_forever} == 1 ) then
+    goto loop
+endif
+
+
