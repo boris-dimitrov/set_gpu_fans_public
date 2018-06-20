@@ -98,10 +98,10 @@ loop:
         set foo = (`/opt/bin/nvidia-smi dmon -s p -c 1 ${gpuid}| tail -1`)
         @ temp = $foo[3]
         @ target = -2
-        if (${temp} < 29) then
-            @ target = -1
+        if (${temp} < 30) then
+            @ target = 20
         endif
-        if (${temp} < 34 && ${temp} >= 29) then
+        if (${temp} < 34 && ${temp} >= 30) then
             @ target = 30
 	endif
         if (${temp} < 38 && ${temp} >= 34) then
