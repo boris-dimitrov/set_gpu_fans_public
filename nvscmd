@@ -113,22 +113,22 @@ loop:
         if (${temp} < 43 && ${temp} >= 40) then
             @ target = 50
         endif
-        if (${temp} < 49 && ${temp} >= 44) then
+        if (${temp} < 49 && ${temp} >= 43) then
             @ target = 60
         endif
-        if (${temp} < 54 && ${temp} >= 50) then
+        if (${temp} < 54 && ${temp} >= 49) then
             @ target = 65
         endif
-        if (${temp} < 61 && ${temp} >= 55) then
+        if (${temp} < 61 && ${temp} >= 54) then
             @ target = 75
         endif
-        if (${temp} < 65 && ${temp} >= 62) then
+        if (${temp} < 65 && ${temp} >= 61) then
             @ target = 80
         endif
-        if (${temp} < 70 && ${temp} >= 66) then
+        if (${temp} < 70 && ${temp} >= 65) then
             @ target = 85
 	endif 
-        if (${temp} < 76 && ${temp} >= 71) then
+        if (${temp} < 77 && ${temp} >= 70) then
             @ target = 90
 	endif
         if (${temp} >= 77) then
