@@ -51,6 +51,19 @@
 #   Relative to 100% fan, the heuristic sacrafices 1.4% of perf to achieve
 #   humanly tolerable noise levels.
 #
+#
+
+set cond = `expr $1 : '^[A-Fa-f0-9]*:[A-Fa-f0-9]*.[A-Fa-f0-9]*$'`
+set n = `echo $1 | wc -c`
+set gpuid=""
+@ n--
+if ( $cond == $n ) then
+    set gpuid=" -i $1 "
+    echo ${gpuid}
+    shift
+endif
+
+
 if ("x$1" == "xrun_forever") then
     @ run_forever = 1
     shift
@@ -82,32 +95,44 @@ loop:
 
     if ($target == -3) then
         # execute heuristic
-        set foo = (`/usr/bin/nvidia-smi dmon -s p -c 1 | sort -n -k3 | tail -1`)
+        set foo = (`/opt/bin/nvidia-smi dmon -s p -c 1 ${gpuid}| tail -1`)
         @ temp = $foo[3]
         @ target = -2
-        if (${temp} < 29) then
-            @ target = -1
+        if (${temp} < 30) then
+            @ target = 20
         endif
-        if (${temp} < 36 && ${temp} >= 31) then
+        if (${temp} < 34 && ${temp} >= 30) then
+            @ target = 30
+	endif
+        if (${temp} < 38 && ${temp} >= 34) then
+            @ target = 40
+        endif
+        if (${temp} < 40 && ${temp} >= 38) then
+            @ target = 45
+        endif
+        if (${temp} < 43 && ${temp} >= 40) then
             @ target = 50
         endif
-        if (${temp} < 43 && ${temp} >= 38) then
-            @ target = 55
-        endif
-        if (${temp} < 49 && ${temp} >= 44) then
+        if (${temp} < 49 && ${temp} >= 43) then
             @ target = 60
         endif
-        if (${temp} < 54 && ${temp} >= 50) then
+        if (${temp} < 54 && ${temp} >= 49) then
             @ target = 65
         endif
-        if (${temp} < 61 && ${temp} >= 55) then
+        if (${temp} < 61 && ${temp} >= 54) then
             @ target = 75
         endif
-        if (${temp} < 70 && ${temp} >= 65) then
+        if (${temp} < 65 && ${temp} >= 61) then
             @ target = 80
         endif
-        if (${temp} >= 73) then
+        if (${temp} < 70 && ${temp} >= 65) then
             @ target = 85
+	endif 
+        if (${temp} < 77 && ${temp} >= 70) then
+            @ target = 90
+	endif
+        if (${temp} >= 77) then
+            @ target = 95
         endif
         if (${target} == -2 || ${target} == ${last_target} || ${target} == ${last_friendly_target}) then
             echo "Current temperature is ${temp}.  No adjustments needed."
@@ -146,7 +171,7 @@ loop:
         set last_friendly_target = "UNKNOWN"
     endif
 
-    sleep 5
+    sleep 15
 
 if ( ${run_forever} == 1 ) then
     goto loop
